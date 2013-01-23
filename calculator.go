@@ -48,7 +48,7 @@ func main() {
 			case c >= '0' && c <= '9':
 				token += string(c)
 			case c == ' ':
-				r, _ := strconv.Atoi(token)
+				r, _ := strconv.Atoi(token) // convert string to int , shortcut to ParseInt(s, 10, 0).
 				stack.push(r)
 				token = ""
 			case c == '+':
