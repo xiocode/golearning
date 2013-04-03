@@ -29,14 +29,14 @@ func getSiteName(line []byte) string {
 	return result[1]
 }
 
-func writeLines(input <-chan []byte, done <-chan bool, finished chan bool) {
+func writeLines(input <-chan []byte, done <-chan bool, finished chan bool, bang chan bool) {
 	for {
 		select {
 		case line := <-input:
 			siteName := getSiteName(line)
 			if _, ok := workers[siteName]; !ok {
 				workers[siteName] = make(chan []byte, 10)
-				go writer(siteName, finished)
+				go writer(siteName, finished, bang)
 			}
 			workers[siteName] <- line
 		case <-done:
@@ -48,7 +48,7 @@ func writeLines(input <-chan []byte, done <-chan bool, finished chan bool) {
 	}
 }
 
-func writer(siteName string, finished chan bool) {
+func writer(siteName string, finished chan bool, bang chan bool) {
 	file, err := os.OpenFile(siteName+".log", os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0666)
 	if err != nil {
 		fmt.Println(err)
@@ -62,13 +62,13 @@ func writer(siteName string, finished chan bool) {
 		case line := <-workers[siteName]:
 			writer.Write(line)
 			writer.Write([]byte("\n"))
-		case <-finished: // timeout
+		case <-finished:
 			stop = true
 			fmt.Println("writer finished!")
 			continue
 		}
 	}
-	finished <- true
+	bang <- true
 }
 
 func readLines(path string, output chan<- []byte, done chan<- bool) {
@@ -96,19 +96,22 @@ func readLines(path string, output chan<- []byte, done chan<- bool) {
 func main() {
 	start := time.Now().Second()
 	input := make(chan []byte, 2)
-	done := make(chan bool, 2)
+	done := make(chan bool)
 	finished := make(chan bool, 10)
+	bang := make(chan bool, 10)
 	defer func() { // close
 		close(input)
 		close(done)
+		close(finished)
+		close(bang)
 	}()
 
 	go readLines("test.log", input, done)
-	go writeLines(input, done, finished)
+	go writeLines(input, done, finished, bang)
 
 	stop := false
 	for !stop {
-		_, stop = <-done
+		_, stop = <-bang
 	}
 	fmt.Printf("CostTime: %v ", time.Now().Second()-start)
 }
