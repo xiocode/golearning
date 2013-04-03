@@ -22,11 +22,11 @@ func init() {
 }
 
 func getSiteName(line []byte) string {
-	result := pattern.FindSubmatch(line)
-	if len(result) < 1 {
-		fmt.Println("\n*************\n" + string(line) + "\n*************")
+	result := pattern.FindStringSubmatch(string(line))
+	if len(result) < 1 { // <--- check error
+		fmt.Println(string(line))
 	}
-	return string(result[1])
+	return result[1]
 }
 
 func writeLines(input <-chan []byte, done <-chan bool, finished chan bool) {
@@ -72,13 +72,8 @@ func writer(siteName string, finished chan bool) {
 }
 
 func readLines(path string, output chan<- []byte, done chan<- bool) {
-	var (
-		line   []byte
-		prefix bool
-		err    error
-		file   *os.File
-	)
-	file, err = os.Open(path)
+
+	file, err := os.Open(path)
 	if err != nil {
 		done <- true
 		fmt.Println(err)
@@ -86,13 +81,12 @@ func readLines(path string, output chan<- []byte, done chan<- bool) {
 	defer file.Close()
 	reader := bufio.NewReaderSize(file, 1024*10)
 	for {
-		line, prefix, err = reader.ReadLine()
+		line, prefix, err := reader.ReadLine()
 		if err != nil {
 			done <- true
 			fmt.Println(err)
 			break
 		}
-		fmt.Println(string(line) + "\n#########################################")
 		if !prefix {
 			output <- line // lines channel
 		}
@@ -102,7 +96,7 @@ func readLines(path string, output chan<- []byte, done chan<- bool) {
 func main() {
 	start := time.Now().Second()
 	input := make(chan []byte, 2)
-	done := make(chan bool)
+	done := make(chan bool, 2)
 	finished := make(chan bool, 10)
 	defer func() { // close
 		close(input)
